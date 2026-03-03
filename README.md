@@ -2,13 +2,11 @@
 
 [![Physics-Informed Gradient Test](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml/badge.svg)](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml)
 
-An automated MLOps pipeline and Physics-Informed Neural Network (PINN) architecture designed to ingest, process, and model multivariable fuel cell degradation data.
-
-Engineered for seamless integration with raw outputs from **Scribner 850e test stations**, this repository enforces thermodynamic constraints (monotonic decay) via gradient-based autograd penalization to prevent non-physical neural network hallucinations.
+An automated pipeline and Physics-Informed Neural Network (PINN) architecture designed to ingest, process, and model multivariable fuel cell degradation data. 
 
 ## Architecture & Physics-Informed Loss
 
-Unlike standard supervised learning architectures, this PGNN incorporates a custom differential loss function. By leveraging PyTorch's `autograd` engine, the model dynamically computes $\frac{\partial V}{\partial t}$ during the forward pass.
+This PGNN incorporates a custom differential loss function. By leveraging PyTorch's `autograd` engine, the model dynamically computes $\frac{\partial V}{\partial t}$ during the forward pass.
 
 The total loss manifold is defined as:
 
