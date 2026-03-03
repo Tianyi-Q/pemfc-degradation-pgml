@@ -1,5 +1,15 @@
-torch>=2.0.0
-pandas
-numpy
-scikit-learn
-matplotlib
+# --- PyTorch (Strict CUDA 12.1 Targeting to match local hardware) ---
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.4.1+cu121
+torchaudio==2.4.1+cu121
+torchvision==0.19.1+cu121
+
+# --- Core Data Engineering ---
+pandas==2.2.3
+numpy==2.2.6
+
+# --- Machine Learning & Normalization ---
+scikit-learn==1.5.2
+
+# --- Visualization ---
+matplotlib==3.8.4

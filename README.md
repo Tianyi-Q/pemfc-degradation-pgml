@@ -1,6 +1,6 @@
-# pemfc-degradation-pgml
+# **Physics-Guided Machine Learning (PGML) for Electrochemical Degradation**
 
-# Physics-Guided Machine Learning (PGML) for Electrochemical Degradation
+[![Physics-Informed Gradient Test](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml/badge.svg)](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml)
 
 An automated MLOps pipeline and Physics-Informed Neural Network (PINN) architecture designed to ingest, process, and model multivariable fuel cell degradation data.
 
@@ -27,7 +27,7 @@ Pending raw experimental data ingestion, the pipeline is currently validated aga
 
 ## Environment Setup
 
-Optimized for CUDA 12.1 and Python 3.10.
+Optimized for CUDA 12.1 and Python 3.12.
 
 ```bash
 git clone [https://github.com/Tianyi-Q/pemfc-degradation-pgml.git](https://github.com/Tianyi-Q/pemfc-degradation-pgml.git)
