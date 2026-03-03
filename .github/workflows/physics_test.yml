@@ -1,0 +1,37 @@
+name: Physics-Informed Gradient Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Deep Learning Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Execute Matrix Generator (Data Engineering)
+      run: |
+        python src/generate_matrix.py
+
+    - name: Run PGNN Training & Autograd Constraint Check
+      run: |
+        python src/train.py
+
+    - name: Evaluate Digital Twin (Inference Sanity Check)
+      run: |
+        python src/evaluate.py
