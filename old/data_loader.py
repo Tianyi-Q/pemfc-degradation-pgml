@@ -1,34 +1,14 @@
-"""Dataset and schema utilities for PEMFC training/evaluation.
-
-Responsibilities:
-- Normalize CSV header variants to canonical names.
-- Select required + optional feature columns.
-- Standardize inputs/targets for stable training.
-- Expose tensors compatible with PyTorch DataLoader.
-"""
-
 import torch
 from torch.utils.data import Dataset
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 
-# Core feature set always expected by the model pipeline.
 FEATURE_COLUMNS = ['TiO2_Loading', 'RH_Percent', 'Time_Hours']
 TARGET_COLUMN = 'Voltage'
 
-# Optional state-like features used when available in the CSV.
-OPTIONAL_FEATURE_COLUMNS = [
-    'CurrentDensity_Acm2',
-    'Temp_K',
-    'MembraneLambda',
-    'FloodingState',
-    'ECSA_Norm',
-]
-
 
 def _canonical(text: str) -> str:
-    """Return a normalized key used for flexible header matching."""
     return ''.join(ch for ch in text.lower() if ch.isalnum())
 
 
@@ -87,33 +67,22 @@ def normalize_pemfc_schema(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 class PEMFCDataset(Dataset):
-    """PyTorch dataset for PEMFC tabular regression."""
-
     def __init__(self, csv_file):
-        """Load CSV, normalize schema, and build scaled tensors."""
         df = pd.read_csv(csv_file)
         df = normalize_pemfc_schema(df)
-
-        # Keep optional features only if they exist in the current dataset.
-        available_optional = [col for col in OPTIONAL_FEATURE_COLUMNS if col in df.columns]
-        self.feature_columns = FEATURE_COLUMNS + available_optional
-        self.target_column = TARGET_COLUMN
-
-        # Store the index of time for derivative-based physics constraints.
-        self.time_feature_index = self.feature_columns.index('Time_Hours')
         
-        # Raw arrays used for scaler fitting and later diagnostics.
-        self.X_raw = df[self.feature_columns].values
-        self.y_raw = df[[self.target_column]].values
+        # extract targets
+        self.X_raw = df[FEATURE_COLUMNS].values
+        self.y_raw = df[[TARGET_COLUMN]].values
         
-        # Standardize inputs/targets for numerically stable optimization.
+        # standardization
         self.scaler_X = StandardScaler()
         self.scaler_y = StandardScaler()
         
         self.X_scaled = self.scaler_X.fit_transform(self.X_raw)
         self.y_scaled = self.scaler_y.fit_transform(self.y_raw)
         
-        # Convert to float tensors for model training.
+        # to tensors
         self.X = torch.tensor(self.X_scaled, dtype=torch.float32)
         self.y = torch.tensor(self.y_scaled, dtype=torch.float32)
         

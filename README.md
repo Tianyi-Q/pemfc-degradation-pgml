@@ -4,15 +4,7 @@
 
 This is a hobby project and also my first time dealing with NNs. After I got frustrated with another model, I tried to have the physics baked in so the predicted curve doesn't flatline like me at 8 o'clock in the classroom. This is an automated pipeline and Physics-Informed Neural Network (PINN) architecture designed to ingest, process, and model multivariable fuel cell degradation data. It is admittedly simplified and I might update this later.
 
-## Architecture & Physics-Informed Loss
-
-This PGNN incorporates a custom differential loss function. By leveraging PyTorch's `autograd` engine, the model dynamically computes $\frac{\partial V}{\partial t}$ during the forward pass. The total loss manifold is defined as:
-
-$$
-\mathcal{L}_{total} = \text{MSE}(V_{pred}, V_{true}) + \lambda \frac{1}{N} \sum \text{ReLU}\left(\frac{\partial V_{pred}}{\partial t}\right)
-$$
-
-This constraint forces the latent space to respect the irreversible kinetics of catalyst degradation, actively rejecting transient sensor noise and flooding artifacts.
+**Note: in the "old" folder you can find a previous model. for the file paths to not break, take them out into the src folder and execute them.**
 
 ## Current Testing Baseline (Synthetic Matrix)
 
@@ -25,7 +17,7 @@ These are actually test cases in a previous experimental study, for more info vi
 
 ## Environment Setup
 
-Optimized for CUDA 12.1 and Python 3.12.
+I am on CUDA 12.1 and Python 3.12. Other versions might work.
 
 ```bash
 git clone [https://github.com/Tianyi-Q/pemfc-degradation-pgml.git](https://github.com/Tianyi-Q/pemfc-degradation-pgml.git)
