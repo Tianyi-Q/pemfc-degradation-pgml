@@ -1,4 +1,4 @@
-name: Physics-Informed Gradient Test
+name: PEMFC-PGML
 
 on:
   push:
