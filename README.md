@@ -1,8 +1,8 @@
 # **Physics-Guided Machine Learning (PGML) for Electrochemical Degradation**
 
-[![Physics-Informed Gradient Test](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml/badge.svg)](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml)
+[![PEMFC-PGML](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml/badge.svg)](https://github.com/Tianyi-Q/pemfc-degradation-pgml/actions/workflows/physics_test.yml)
 
-This is a hobby project and also my first time dealing with NNs. After I got frustrated with another model, I tried to have the physics baked in so the predicted curve doesn't flatline like me at 8 o'clock in the classroom. This is an automated pipeline and Physics-Informed Neural Network (PINN) architecture designed to ingest, process, and model multivariable fuel cell degradation data. It is admittedly simplified and I might update this later.
+This is a hobby project and also my first time dealing with NNs. After I got frustrated with another model, I tried to have the physics baked in so the predicted curve doesn't flatline like me at 8 o'clock in the classroom. This is an automated pipeline and Physics-Informed Neural Network (PINN) architecture designed to generate, process, and model multivariable fuel cell degradation data. It is admittedly simplified and I might update this later.
 
 **Note: in the "old" folder you can find a previous model. for the file paths to not break, take them out into the src folder and execute them.**
 
