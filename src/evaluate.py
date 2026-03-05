@@ -1,10 +1,21 @@
-"""Evaluation script for the non-v0 PEMFC PGNN pipeline.
+"""Evaluation script for the PEMFC Physics-Guided ML pipeline.
+(Pipeline step 4 of 4 — runs after train.py)
 
-Outputs:
-- global and per-segment metrics,
-- multi-segment time-series comparison plot,
-- parity plot (predicted vs measured),
-- CSV summary of segment metrics.
+This script answers the question: "How well does the trained model
+predict fuel-cell voltage across all operating conditions?"
+
+Workflow:
+1. Load the same synthetic CSV used for training.
+2. Load the saved model checkpoint (weights + scaler statistics).
+3. For every operating segment (loading x RH combination), run
+   inference and compute per-segment and global error metrics.
+4. Generate three publication-ready plots:
+   a) Multi-segment time-series overlay (measured vs predicted).
+   b) Parity plot (predicted vs measured scatter + ideal y = x line).
+   c) Local comparison (single segment with zoomed early-time panel).
+5. Save a CSV summary of per-segment metrics.
+
+All outputs land in data/processed/ for downstream reporting.
 """
 
 import torch
@@ -17,7 +28,17 @@ from data_loader import FEATURE_COLUMNS, TARGET_COLUMN, normalize_pemfc_schema
 
 
 def _metrics(y_true, y_pred):
-    """Compute MAE, RMSE, and R² for a prediction vector."""
+    """Compute three standard regression metrics for a prediction vector.
+
+    Returns (MAE, RMSE, R^2) where:
+    - MAE  (Mean Absolute Error): average absolute deviation in volts.
+           Easy to interpret — "on average, predictions are X V off".
+    - RMSE (Root Mean Squared Error): like MAE but penalises large errors
+           more heavily because squaring amplifies outliers.
+    - R^2  (Coefficient of Determination): fraction of total variance
+           explained by the model.  1.0 = perfect, 0.0 = no better than
+           predicting the mean, <0 = worse than the mean.
+    """
     y_true = np.asarray(y_true).reshape(-1)
     y_pred = np.asarray(y_pred).reshape(-1)
     mae = float(np.mean(np.abs(y_true - y_pred)))
@@ -29,15 +50,27 @@ def _metrics(y_true, y_pred):
 
 
 def evaluate_digital_twin():
-    """Run full evaluation workflow and save visual/CSV artifacts."""
+    """Run the full evaluation workflow and save visual / CSV artifacts.
+
+    This function ties together data loading, model inference, metric
+    computation, and plot generation.  It operates in evaluation-only
+    mode (model.eval(), torch.no_grad()) so no gradients are computed
+    and memory usage stays low.
+    """
     print("[*] Loading synthetic baseline and normalizers...")
     # Load data and normalize schema to expected canonical column names.
     df = pd.read_csv("data/raw/synthetic_matrix.csv")
     df = normalize_pemfc_schema(df)
 
+    # Load the checkpoint saved by train.py.  It contains model weights
+    # plus the StandardScaler statistics (mean, std) that were fitted on
+    # the training data.  Using these ensures we normalise evaluation
+    # inputs in exactly the same way as during training — any mismatch
+    # would silently corrupt predictions.
     ckpt_path = "models/pgnn_checkpoint.pth"
 
-    # Prefer checkpoint scalers/feature metadata from training for strict consistency.
+    # Prefer checkpoint scalers; fall back to re-computing from the CSV
+    # only when running with legacy weight files that lack scaler info.
     if os.path.exists(ckpt_path):
         checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         x_mean = np.asarray(checkpoint["x_mean"], dtype=np.float64)
@@ -55,7 +88,8 @@ def evaluate_digital_twin():
         feature_columns = FEATURE_COLUMNS
         print("[!] Checkpoint not found, using fallback scalers from current CSV.")
 
-    # Avoid divide-by-zero if any feature has zero variance.
+    # Safety: if any feature has zero variance (constant column), set
+    # its scale to 1.0 to avoid division by zero during normalisation.
     x_scale = np.where(x_scale == 0.0, 1.0, x_scale)
     y_scale = np.where(y_scale == 0.0, 1.0, y_scale)
     
@@ -66,7 +100,8 @@ def evaluate_digital_twin():
         model.load_state_dict(checkpoint["model_state_dict"])
     else:
         model.load_state_dict(torch.load("models/pgnn_weights.pth", weights_only=True))
-    # Inference mode disables train-time behavior.
+    # Switch to evaluation mode: disables dropout / batchnorm training
+    # behaviour (not used in this architecture, but good practice).
     model.eval()
 
     # Ensure all expected feature columns are present in the current CSV.
@@ -80,10 +115,14 @@ def evaluate_digital_twin():
     loadings = sorted(df['TiO2_Loading'].unique())
     rhs = sorted(df['RH_Percent'].unique())
 
-    # Predict and score each operating segment (loading × RH).
+    # Enumerate every unique (loading, RH) operating segment and run
+    # the trained model on each one.  This lets us compute per-segment
+    # metrics and later visualise each condition separately.
     segment_frames = []
     metrics_rows = []
 
+    # torch.no_grad() disables autograd tracking, saving memory and time
+    # because we do not need gradients during evaluation.
     with torch.no_grad():
         for loading in loadings:
             for rh in rhs:
@@ -92,11 +131,15 @@ def evaluate_digital_twin():
                 if seg.empty:
                     continue
 
+                # Normalise inputs using the training-time scaler stats,
+                # run the model, then invert the target scaling to get
+                # predictions back in real volts.
                 X_infer = seg[feature_columns].values
                 X_infer_scaled = (X_infer - x_mean) / x_scale
                 X_tensor = torch.tensor(X_infer_scaled, dtype=torch.float32).to(device)
 
-                # Model output is in scaled target space; convert back to volts.
+                # Model predicts in scaled-voltage space; undo:
+                #   V_real = V_scaled * std_voltage + mean_voltage
                 y_pred_scaled = model(X_tensor).cpu().numpy()
                 y_pred = ((y_pred_scaled * y_scale) + y_mean).reshape(-1)
 
@@ -113,6 +156,8 @@ def evaluate_digital_twin():
                     'NumPoints': len(seg),
                 })
 
+    # Concatenate all segments into one big DataFrame and build a
+    # summary table of per-segment metrics.
     if not segment_frames:
         raise ValueError("No segments were available for evaluation.")
 
@@ -130,6 +175,12 @@ def evaluate_digital_twin():
     # ------------------------------------------------------------------
     # Multi-segment validation plot
     # ------------------------------------------------------------------
+    # One subplot per TiO2 loading level, arranged in a 2x2 grid.
+    # Within each subplot, every RH condition is drawn as a pair of lines:
+    #   - faded thin line  = measured (noisy sensor) voltage
+    #   - vivid thick line = PGNN prediction
+    # Using the same colour for both makes it easy to see how closely
+    # the prediction tracks the measurement for each RH.
     n_loadings = len(loadings)
     # Two columns layout (2x2 for four loadings).
     ncols = 2
@@ -211,6 +262,10 @@ def evaluate_digital_twin():
     # ------------------------------------------------------------------
     # Parity plot: predicted vs measured voltage
     # ------------------------------------------------------------------
+    # A parity plot is a scatter of (measured, predicted) for every data
+    # point.  If the model were perfect, all dots would sit on the
+    # diagonal y = x line.  Spread around that line shows prediction
+    # error.  This is a standard way to visualise regression quality.
     fig_parity, ax_parity = plt.subplots(figsize=(7, 7))
     ax_parity.scatter(
         pred_df['Voltage'],
@@ -251,17 +306,23 @@ def evaluate_digital_twin():
     print(f"[*] Segment metrics saved to {metrics_path}")
 
     # ------------------------------------------------------------------
-    # Local comparison: one loading at a temperature level
+    # Local comparison: one loading at one temperature level
     # ------------------------------------------------------------------
-    # Prefer a commonly used loading (0.10) when available, else first loading.
+    # This is a "close-up" view of a single operating regime.  It helps
+    # you see fine-grained prediction behaviour (small ripples, noise
+    # tracking) that gets lost in the multi-segment overview.
+    # Two panels: full time horizon + early-time zoom for extra detail.
+    #
+    # We prefer loading = 0.10 (the "best" condition) when available.
     preferred_loading = 0.10
     local_loading = preferred_loading if preferred_loading in loadings else float(loadings[0])
     local_sub = pred_df[pred_df['TiO2_Loading'] == local_loading].copy()
 
     if not local_sub.empty:
         if 'Temp_K' in local_sub.columns:
-            # Choose a representative temperature level around the median temperature
-            # of the selected loading and widen tolerance until enough points exist.
+            # Choose a representative temperature band around the median.
+            # We start with a tight tolerance (+/- 0.6 K) and widen it
+            # until we have at least 30 data points for a meaningful plot.
             temp_target = float(local_sub['Temp_K'].median())
             tolerance_candidates = [0.6, 1.2, 2.0]
             local_band = pd.DataFrame()
