@@ -392,7 +392,7 @@ def evaluate_digital_twin():
         ax_local_full.grid(True, linestyle='--', alpha=0.35)
         ax_local_full.legend(loc='best')
 
-        zoom_window_hours = 20.0
+        zoom_window_hours = 60.0
         t0 = float(local_band['Time_Hours'].min())
         t1 = float(local_band['Time_Hours'].max())
         zoom_end = min(t0 + zoom_window_hours, t1)
