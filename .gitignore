@@ -1,0 +1,9 @@
+data/.DS_Store
+.DS_Store
+code_interpretations/0_Full Pipeline Walkthrough.md
+code_interpretations/1_generate_matrix.py.md
+code_interpretations/2_data_loader.py.md
+code_interpretations/3_model.py.md
+code_interpretations/4_train.py.md
+code_interpretations/5_evaluate.py.md
+code_interpretations/6_recap and suggestions.md
